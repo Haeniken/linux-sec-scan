@@ -5,9 +5,21 @@ RED="\e[91m"
 GREEN="\e[92m"
 YELLOW="\e[93m"
 RESET="\e[0m"
+CYAN="\e[96m"
 
 # Array to store recommendations
 recommendations=()
+
+# Function to print a message with a colored status
+print_status() {
+    local status=$1
+    local message=$2
+    case $status in
+        GOOD) echo -e "${GREEN}[ GOOD ]${RESET} $message" ;;
+        BAD)  echo -e "${RED}[ BAD  ]${RESET} $message" ;;
+        *)    echo -e "${YELLOW}[ INFO ]${RESET} $message" ;;
+    esac
+}
 
 # Function to check file owner
 check_owner() {
@@ -17,11 +29,11 @@ check_owner() {
     if [[ -z "$current_owner" ]]; then
         return 1 # File does not exist or cannot be accessed
     elif [[ "$current_owner" == "$expected_owner" ]]; then
-        echo -e "${GREEN}[ GOOD ]${RESET}"
+        print_status "GOOD" "File '$file' owner is '$current_owner'."
         return 0
     else
-        echo -e "${RED}[ BAD  ]${RESET}"
-        recommendations+=("File '$file': Current owner is '$current_owner', but should be '$expected_owner'. Fix with: \e[1;95msudo chown $expected_owner '$file'\e[0m")
+        print_status "BAD" "File '$file': Current owner is '$current_owner', but should be '$expected_owner'."
+        recommendations+=("File '$file': Fix owner with: ${CYAN}sudo chown $expected_owner '$file'${RESET}")
         return 1
     fi
 }
@@ -34,11 +46,11 @@ check_group() {
     if [[ -z "$current_group" ]]; then
         return 1 # File does not exist or cannot be accessed
     elif [[ "$current_group" == "$expected_group" ]]; then
-        echo -e "${GREEN}[ GOOD ]${RESET}"
+        print_status "GOOD" "File '$file' group is '$current_group'."
         return 0
     else
-        echo -e "${RED}[ BAD  ]${RESET}"
-        recommendations+=("File '$file': Current group is '$current_group', but should be '$expected_group'. Fix with: \e[1;95msudo chgrp $expected_group '$file'\e[0m")
+        print_status "BAD" "File '$file': Current group is '$current_group', but should be '$expected_group'."
+        recommendations+=("File '$file': Fix group with: ${CYAN}sudo chgrp $expected_group '$file'${RESET}")
         return 1
     fi
 }
@@ -51,11 +63,11 @@ check_permissions() {
     if [[ -z "$current_perms" ]]; then
         return 1 # File does not exist or cannot be accessed
     elif [[ "$current_perms" == "$expected_perms" ]]; then
-        echo -e "${GREEN}[ GOOD ]${RESET}"
+        print_status "GOOD" "File '$file' permissions are '$current_perms'."
         return 0
     else
-        echo -e "${RED}[ BAD  ]${RESET}"
-        recommendations+=("File '$file': Current permissions are '$current_perms', but should be '$expected_perms'. Fix with: \e[1;95msudo chmod $expected_perms '$file'\e[0m")
+        print_status "BAD" "File '$file': Current permissions are '$current_perms', but should be '$expected_perms'."
+        recommendations+=("File '$file': Fix permissions with: ${CYAN}sudo chmod $expected_perms '$file'${RESET}")
         return 1
     fi
 }
@@ -69,26 +81,20 @@ perform_checks() {
 
     # Check if the file exists and is accessible
     if ! stat "$file" &>/dev/null; then
-        printf "%-60s" "[*] Checking $file"
-        echo -e "${RED}[ BAD  ]${RESET}"
+        print_status "BAD" "File '$file' does not exist or cannot be accessed."
         recommendations+=("File '$file' does not exist or cannot be accessed.")
         return
     fi
 
     # Perform individual checks
-    printf "%-60s" "[*] Checking $file owner"
     check_owner "$file" "$owner"
-
-    printf "%-60s" "[*] Checking $file group"
     check_group "$file" "$group"
-
-    printf "%-60s" "[*] Checking $file file permissions"
     check_permissions "$file" "$perms"
 }
 
 # Header
 echo
-echo -e "\e[1;95m-------------------------[system files audit in progress]-------------------------\e[0m"
+echo -e "${CYAN}-------------------------[system files audit in progress]-------------------------${RESET}"
 
 # Define files and their expected attributes
 declare -A files=(
@@ -107,7 +113,7 @@ declare -A files=(
 for file in "${!files[@]}"; do
     # Split attributes into owner, group, and permissions
     IFS=' ' read -r owner group perms <<< "${files[$file]}"
-    
+
     perform_checks "$file" "$owner" "$group" "$perms"
 done
 
